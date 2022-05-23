@@ -1,0 +1,26 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "",
+        "limitSymbolsToIncludedHeaders": true
+      },
+      "includePath": [
+        "/home/zhang/net/devel/include/**",
+        "/home/zhang/test/devel/include/**",
+        "/opt/ros/kinetic/include/**",
+        "/home/zhang/net/src/ddynamic_reconfigure-kinetic-devel/include/**",
+        "/home/zhang/net/src/dh_hand_driver/include/**",
+        "/home/zhang/net/src/jaka_ros_driver/include/**",
+        "/home/zhang/pcc/src/pc_dateset/include/**",
+        "/home/zhang/net/src/realsense-ros/realsense2_camera/include/**",
+        "/home/zhang/net/src/robot_msgs/include/**",
+        "/home/zhang/net/src/subject4_mission/include/**",
+        "/home/zhang/test/src/test1/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS"
+    }
+  ],
+  "version": 4
+}

@@ -1,0 +1,14 @@
+{
+    "python.autoComplete.extraPaths": [
+        "/home/zhang/pcc/devel/lib/python2.7/dist-packages",
+        "/home/zhang/net/devel/lib/python2.7/dist-packages",
+        "/home/zhang/test/devel/lib/python2.7/dist-packages",
+        "/opt/ros/kinetic/lib/python2.7/dist-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/zhang/pcc/devel/lib/python2.7/dist-packages",
+        "/home/zhang/net/devel/lib/python2.7/dist-packages",
+        "/home/zhang/test/devel/lib/python2.7/dist-packages",
+        "/opt/ros/kinetic/lib/python2.7/dist-packages"
+    ]
+}
