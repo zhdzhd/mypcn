@@ -215,7 +215,7 @@ def train_one_epoch():
         # print(par_pc.shape)
         # Forward pass
         optimizer.zero_grad()
-        center , coarse , fine = net(par_pc,gt_cen,par_m,train = True)
+        center , coarse , fine = net(par_pc,par_m,gt_cen,train = True)
         # print(center)
         # print(gt_cen)
         # Compute loss and gradients, update parameters.
