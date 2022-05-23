@@ -10,7 +10,7 @@ import open3d
 from extensions.chamfer_dist import ChamferDistanceL2
 
 class my_pc_dataset(Dataset):
-    def __init__(self,root = '/home/zhang/mypcn', npoints = 2048 ,train = True):
+    def __init__(self,root = '/home/zhang/mypcn', npoints = 2048 ,train = True,get_one=False,get_dir=['0']):
         print("Start init dataset!")
         self.npoints = npoints
         self.gt_npoints = npoints * 4
@@ -28,8 +28,15 @@ class my_pc_dataset(Dataset):
             root = os.path.join(root,'data_test')
         
         file_path = os.path.join(root,'dataset')
-        file_dir = os.listdir(file_path)
-        
+
+        if get_one:
+            file_dir = get_dir
+        else:
+            file_dir = os.listdir(file_path)
+        max_m = 0
+        min_m = 10
+        max_parm = 0
+        min_parm = 10
         
         for file in file_dir:
             
@@ -65,8 +72,17 @@ class my_pc_dataset(Dataset):
                 par_pc_input = par_pc_input/par_m
                 gt_cen = gt_cen/par_m
 
-                # m = np.max(np.sqrt(np.sum(gt_pc**2, axis=1)))
-                gt_pc = gt_pc/par_m
+                if par_m < min_parm:
+                    min_parm=par_m
+                if par_m>max_parm:
+                    max_parm=par_m
+
+                m = np.max(np.sqrt(np.sum(gt_pc**2, axis=1)))
+                if m < min_m:
+                    min_m=m
+                if m>max_m:
+                    max_m=m
+                # gt_pc = gt_pc/par_m
 
 
                 self.pc_input.append(par_pc_input)
@@ -78,6 +94,10 @@ class my_pc_dataset(Dataset):
                 
 
         print('Finish load dataset!')
+        print('max m = %f'%max_m)
+        print('min_m = %f'%min_m)
+        print('parmax m = %f'%max_parm)
+        print('parmin_m = %f'%min_parm)
                 
     def read_pcd(self,pc_path):
         pc = open3d.io.read_point_cloud(pc_path)
@@ -167,7 +187,7 @@ class my_pc_dataset_get_one(Dataset):
                 gt_cen = gt_cen/par_m
 
                 # m = np.max(np.sqrt(np.sum(gt_pc**2, axis=1)))
-                gt_pc = gt_pc/par_m
+                
 
 
                 self.pc_input.append(par_pc_input)
@@ -231,7 +251,7 @@ if __name__ == "__main__":
         rotated_data = torch.matmul(points-ctr,rotation_matrix) + ctr
         return rotated_data, rotation_matrix
     pc_loss = ChamferDistanceL2()
-    data = my_pc_dataset_get_one(train=True)
+    data = my_pc_dataset(train=True)
     train_data = DataLoader(data, batch_size=1,shuffle=True,drop_last=False)
     for batch_idx, batch_data_label in enumerate(train_data):
         par_pc,gt_pc,matrix,gt_cen,gt_m,par_m = batch_data_label

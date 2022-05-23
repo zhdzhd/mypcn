@@ -60,13 +60,13 @@ class Fold(nn.Module):
 
 
 class Pointnet2(nn.Module):
-    def __init__(self, input_dim=0, size_z=128, global_feature_size=1024):
+    def __init__(self, input_dim=0,radius=[0.04,0.08,0.16]):
         super().__init__()
 
         self.sa1=pointnet2_modules.PointnetSAModule(
                 mlp=[input_dim, 32, 32, 64],
                 npoint=512,
-                radius=0.04,
+                radius=radius[0],
                 nsample=64,
                 use_xyz=True,
                 bn=True,)
@@ -74,7 +74,7 @@ class Pointnet2(nn.Module):
         self.sa2=pointnet2_modules.PointnetSAModule(
                 mlp=[64, 128, 128, 256],
                 npoint=128,
-                radius=0.08,
+                radius=radius[1],
                 nsample=32,
                 use_xyz=True,
                 bn=True,)
@@ -82,7 +82,7 @@ class Pointnet2(nn.Module):
         self.sa3=pointnet2_modules.PointnetSAModule(
                 mlp=[256, 256, 512, 512],
                 npoint=32,
-                radius=0.16,
+                radius=radius[2],
                 nsample=16,
                 use_xyz=True,
                 bn=True,)
@@ -139,7 +139,7 @@ class Model(nn.Module):
 
         
         self.backbone_modules1 = Pointnet2()
-        self.backbone_modules2 = Pointnet2()
+        self.backbone_modules2 = Pointnet2(radius=[0.008,0.016,0.032])
         
         self.center_and_m_map= nn.Sequential(
             nn.Linear(1024, 512),
@@ -174,7 +174,7 @@ class Model(nn.Module):
         return sub_pc
 
 
-    def forward(self,pc_input,cen_gt = None, par_m=None, train = False):
+    def forward(self,pc_input,par_m,cen_gt = None,train = False):
 
         bs , n , _ = pc_input.shape
 
@@ -183,9 +183,10 @@ class Model(nn.Module):
             center = self.center_and_m_map(center_features)   # B 4
 
             pc_input = pc_input - cen_gt.unsqueeze(-2)
+            pc_input = pc_input*par_m.unsqueeze(-1).unsqueeze(-2)
 
         else:
-            if cen_gt is None or par_m is None:
+            if cen_gt is None:
                 center_features = self.backbone_modules1(pc_input)  #B 1024
                 center = self.center_and_m_map(center_features)   # B 4
 
@@ -197,6 +198,7 @@ class Model(nn.Module):
 
 
             pc_input = pc_input - center.unsqueeze(-2)
+            pc_input = pc_input*par_m.unsqueeze(-1).unsqueeze(-2)
 
 
 

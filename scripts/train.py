@@ -266,7 +266,7 @@ def evaluate_one_epoch():
  
 
         with torch.no_grad():
-            center , coarse , fine = net(par_pc)
+            center , coarse , fine = net(par_pc,par_m)
 
         # Compute loss
         loss , loss_pc,loss_fine, loss_coarse, loss_cen = get_loss(fine,coarse,gt_pc,center,gt_cen)

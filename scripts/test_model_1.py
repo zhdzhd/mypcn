@@ -13,6 +13,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
+from train import get_loss
 import open3d
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -99,22 +100,22 @@ def read_matrix(matrix_path):
 
 pc_loss = ChamferDistanceL2()
 
-def get_loss(fine,coarse,gt_pc,center,gt_cen,alpha = 1):
-    # print(fine.shape)
-    b,_,_ = fine.shape
+# def get_loss(fine,coarse,gt_pc,center,gt_cen,alpha = 1):
+#     # print(fine.shape)
+#     b,_,_ = fine.shape
     
     
-    loss_fine = pc_loss(fine,gt_pc)
-    loss_coarse = pc_loss(coarse,gt_pc)
-    loss_pc = alpha*loss_fine + loss_coarse
-# 
-    loss_cen = torch.sum((center-gt_cen)**2)/b
-    # loss_m = torch.sum((m-gt_m)**2)/b
+#     loss_fine = pc_loss(fine,gt_pc)
+#     loss_coarse = pc_loss(coarse,gt_pc)
+#     loss_pc = alpha*loss_fine + loss_coarse
+# # 
+#     loss_cen = torch.sum((center-gt_cen)**2)/b
+#     # loss_m = torch.sum((m-gt_m)**2)/b
 
 
-    # loss2 = torch.from_numpy(np.array(0).astype(np.float32))
-    loss = loss_pc + loss_cen
-    return loss , loss_pc,loss_fine, loss_coarse, loss_cen
+#     # loss2 = torch.from_numpy(np.array(0).astype(np.float32))
+#     loss = loss_pc + loss_cen
+#     return loss , loss_pc,loss_fine, loss_coarse, loss_cen
 
 from my_data import my_pc_dataset_get_one
 TRAIN_DATASET = my_pc_dataset_get_one(npoints = 2048 ,train = True)
