@@ -22,7 +22,7 @@ sys.path.append(os.path.join(ROOT_DIR, 'model'))
 parser = argparse.ArgumentParser()
 parser.add_argument('--model', default='my_pc_model', help='Model file name [default: my_pc_model]')
 parser.add_argument('--checkpoint_path', default=None, help='Model checkpoint path [default: None]')
-parser.add_argument('--dataset_path', default='/home/zhang/pcc', help='dataset path [default: None]')
+parser.add_argument('--dataset_path', default='/home/zhang/mypcn', help='dataset path [default: None]')
 parser.add_argument('--log_dir', default='log', help='Dump dir to save model checkpoint [default: log]')
 parser.add_argument('--dump_dir', default=None, help='Dump dir to save sample outputs [default: None]')
 parser.add_argument('--num_point', type=int, default=2048, help='Point Number [default: 20000]')
@@ -160,7 +160,7 @@ def get_current_alpha(epoch):
 
 pc_loss = ChamferDistanceL2()
 
-def get_loss(fine,coarse,gt_pc,center,gt_cen,m,gt_m,alpha = 1):
+def get_loss(fine,coarse,gt_pc,center,gt_cen,alpha = 1):
     # print(fine.shape)
     b,_,_ = fine.shape
     
@@ -170,12 +170,10 @@ def get_loss(fine,coarse,gt_pc,center,gt_cen,m,gt_m,alpha = 1):
     loss_pc = alpha*loss_fine + loss_coarse
 # 
     loss_cen = torch.sum((center-gt_cen)**2)/b
-    loss_m = torch.sum((m-gt_m)**2)/b
 
-    loss_cenm = loss_cen+0.5*loss_m
     # loss2 = torch.from_numpy(np.array(0).astype(np.float32))
-    loss = loss_pc + 0.5*loss_cenm
-    return loss , loss_pc,loss_fine, loss_coarse, loss_cen,loss_m
+    loss = loss_pc + loss_cen
+    return loss , loss_pc,loss_fine, loss_coarse, loss_cen
 
 def rotate_point_cloud(points, rotation_matrix=None):
     """ Input: (n,3), Output: (n,3) """
@@ -196,7 +194,6 @@ def train_one_epoch():
     stat_dict = {} # collect statistics
     stat_dict['coarse_loss'] = 0
     stat_dict['fine_loss'] = 0
-    stat_dict['m_loss'] = 0
     stat_dict['cen_loss'] = 0
     stat_dict['pc_loss'] = 0
     stat_dict['loss'] = 0
@@ -206,23 +203,23 @@ def train_one_epoch():
     # bnm_scheduler.step() # decay BN momentum
     net.train() # set model to training mode
     for batch_idx, batch_data_label in enumerate(TRAIN_DATALOADER):
-        par_pc,gt_pc,matrix,gt_cen,gt_m,par_m = batch_data_label
+        par_pc,gt_pc,matrix,gt_cen,par_m = batch_data_label
         gt_pc,m = rotate_point_cloud(gt_pc,matrix)
 
         par_pc = par_pc.to(device)    
         gt_pc = gt_pc.to(device)
         matrix = matrix.to(device)
         gt_cen = gt_cen.to(device)
-        gt_m = gt_m.to(device)
+        # gt_m = gt_m.to(device)
         par_m = par_m.to(device)
         # print(par_pc.shape)
         # Forward pass
         optimizer.zero_grad()
-        center ,m, coarse , fine = net(par_pc,gt_cen,gt_m,par_m,train = True)
+        center , coarse , fine = net(par_pc,gt_cen,par_m,train = True)
         # print(center)
         # print(gt_cen)
         # Compute loss and gradients, update parameters.
-        loss , loss_pc,loss_fine, loss_coarse, loss_cen,loss_m = get_loss(fine,coarse,gt_pc,center,gt_cen,m,gt_m/par_m,alpha)
+        loss , loss_pc,loss_fine, loss_coarse, loss_cen = get_loss(fine,coarse,gt_pc,center,gt_cen,alpha)
         # print(loss1)
         loss.backward()
         optimizer.step()
@@ -232,7 +229,6 @@ def train_one_epoch():
         stat_dict['coarse_loss'] += loss_coarse
         stat_dict['fine_loss'] += loss_fine
         stat_dict['cen_loss'] += loss_cen
-        stat_dict['m_loss'] += loss_m
         stat_dict['pc_loss'] += loss_pc
         stat_dict['loss'] += loss
         #end_points = post_pred_grasp_pose(end_points,'/home/aemc/grasp_scene_raw/')
@@ -250,7 +246,6 @@ def evaluate_one_epoch():
     stat_dict = {} # collect statistics
     stat_dict['coarse_loss'] = 0
     stat_dict['fine_loss'] = 0
-    stat_dict['m_loss'] = 0
     stat_dict['cen_loss'] = 0
     stat_dict['pc_loss'] = 0
     stat_dict['loss'] = 0
@@ -259,28 +254,27 @@ def evaluate_one_epoch():
         if batch_idx % 5 == 0:
             print('Eval batch: %d'%(batch_idx))
 
-        par_pc,gt_pc,matrix,gt_cen,gt_m,par_m = batch_data_label
+        par_pc,gt_pc,matrix,gt_cen,par_m = batch_data_label
         gt_pc,m = rotate_point_cloud(gt_pc,matrix)
 
         par_pc = par_pc.to(device)    
         gt_pc = gt_pc.to(device)
         matrix = matrix.to(device)
         gt_cen = gt_cen.to(device)
-        gt_m = gt_m.to(device)
+        # gt_m = gt_m.to(device)
         par_m = par_m.to(device)
  
 
         with torch.no_grad():
-            center , m,coarse , fine = net(par_pc)
+            center , coarse , fine = net(par_pc)
 
         # Compute loss
-        loss , loss_pc,loss_fine, loss_coarse, loss_cen,loss_m = get_loss(fine,coarse,gt_pc,center,gt_cen,m,gt_m/par_m)
+        loss , loss_pc,loss_fine, loss_coarse, loss_cen = get_loss(fine,coarse,gt_pc,center,gt_cen)
 
         # Accumulate statistics and print out
         stat_dict['coarse_loss'] += loss_coarse
         stat_dict['fine_loss'] += loss_fine
         stat_dict['cen_loss'] += loss_cen
-        stat_dict['m_loss'] += loss_m
         stat_dict['pc_loss'] += loss_pc
         stat_dict['loss'] += loss
 

@@ -148,7 +148,7 @@ class Model(nn.Module):
             nn.Linear(512, 256),
             nn.BatchNorm1d(256),
             nn.ReLU(inplace=True),
-            nn.Linear(256, 4)
+            nn.Linear(256, 3)
         )
 
 
@@ -174,35 +174,30 @@ class Model(nn.Module):
         return sub_pc
 
 
-    def forward(self,pc_input,cen_gt = None, m_gt=None, par_m=None, train = False):
+    def forward(self,pc_input,cen_gt = None, par_m=None, train = False):
 
         bs , n , _ = pc_input.shape
 
         if train:
             center_features = self.backbone_modules1(pc_input)  #B 1024
-            center_m = self.center_and_m_map(center_features)   # B 4
-            center = center_m[:,0:3]
-            m = center_m[:,3:4]
+            center = self.center_and_m_map(center_features)   # B 4
 
             pc_input = pc_input - cen_gt.unsqueeze(-2)
-            pc_input = pc_input*par_m.unsqueeze(-1).unsqueeze(-2)
-            pc_input = pc_input/m_gt.unsqueeze(-1).unsqueeze(-2)
 
         else:
-            if cen_gt is None or m_gt is None:
+            if cen_gt is None or par_m is None:
                 center_features = self.backbone_modules1(pc_input)  #B 1024
-                center_m = self.center_and_m_map(center_features)   # B 4
-                center = center_m[:,0:3]
-                m = center_m[:,3:4]
+                center = self.center_and_m_map(center_features)   # B 4
+
                 
 
             else:
                 center = cen_gt
-                m=m_gt
+
 
 
             pc_input = pc_input - center.unsqueeze(-2)
-            pc_input = pc_input/m.unsqueeze(-2)
+
 
 
 
@@ -234,7 +229,7 @@ class Model(nn.Module):
         inp_sparse = self.fps(pc_input, self.fps_num)
         coarse = torch.cat([coarse,inp_sparse],dim=1)
 
-        return (center.contiguous(), m.contiguous(), coarse.contiguous(), fine.contiguous())
+        return (center.contiguous(), coarse.contiguous(), fine.contiguous())
 
 
 

@@ -21,7 +21,7 @@ sys.path.append(os.path.join(ROOT_DIR, 'model'))
 parser = argparse.ArgumentParser()
 parser.add_argument('--model', default='my_pc_model', help='Model file name [default: my_pc_model]')
 parser.add_argument('--checkpoint_path', default=None, help='Model checkpoint path [default: None]')
-parser.add_argument('--dataset_path', default='/home/zhang/pcc', help='dataset path [default: None]')
+parser.add_argument('--dataset_path', default='/home/zhang/mypcn', help='dataset path [default: None]')
 parser.add_argument('--log_dir', default='log', help='Dump dir to save model checkpoint [default: log]')
 parser.add_argument('--dump_dir', default=None, help='Dump dir to save sample outputs [default: None]')
 parser.add_argument('--num_point', type=int, default=2048, help='Point Number [default: 20000]')
@@ -99,7 +99,7 @@ def read_matrix(matrix_path):
 
 pc_loss = ChamferDistanceL2()
 
-def get_loss(fine,coarse,gt_pc,center,gt_cen,m,gt_m,alpha = 1):
+def get_loss(fine,coarse,gt_pc,center,gt_cen,alpha = 1):
     # print(fine.shape)
     b,_,_ = fine.shape
     
@@ -109,18 +109,18 @@ def get_loss(fine,coarse,gt_pc,center,gt_cen,m,gt_m,alpha = 1):
     loss_pc = alpha*loss_fine + loss_coarse
 # 
     loss_cen = torch.sum((center-gt_cen)**2)/b
-    loss_m = torch.sum((m-gt_m)**2)/b
+    # loss_m = torch.sum((m-gt_m)**2)/b
 
-    loss_cenm = loss_cen+0.5*loss_m
+
     # loss2 = torch.from_numpy(np.array(0).astype(np.float32))
-    loss = loss_pc + 0.5*loss_cenm
-    return loss , loss_pc,loss_fine, loss_coarse, loss_cen,loss_m
+    loss = loss_pc + loss_cen
+    return loss , loss_pc,loss_fine, loss_coarse, loss_cen
 
 from my_data import my_pc_dataset_get_one
 TRAIN_DATASET = my_pc_dataset_get_one(npoints = 2048 ,train = True)
 TRAIN_DATALOADER = DataLoader(TRAIN_DATASET, batch_size=1,shuffle=True, drop_last=False)
 for batch_idx, batch_data_label in enumerate(TRAIN_DATALOADER):
-        par_pc,gt_pc,matrix,gt_cen,gt_m,par_m = batch_data_label
+        par_pc,gt_pc,matrix,gt_cen,par_m = batch_data_label
         # print(par_pc.shape)
         # print(sep_pc.shape)
         # print(gt_pc.shape)
@@ -135,23 +135,21 @@ par_pc = par_pc.to(device)
 gt_pc = gt_pc.to(device)
 matrix = matrix.to(device)
 gt_cen = gt_cen.to(device)
-gt_m = gt_m.to(device)
+# gt_m = gt_m.to(device)
 par_m = par_m.to(device)
 with torch.no_grad():
-    center , m,coarse_with_center , fine_with_center = net(par_pc,gt_cen,gt_m,par_m,train = True)
+    center , coarse_with_center , fine_with_center = net(par_pc,gt_cen,par_m,train = True)
     # center , m,coarse , fine = net(par_pc,gt_cen)
     print(center)
-    print(m)
-    print(gt_cen)
-    print(gt_m/par_m)
-    center ,m, coarse , fine = net(par_pc)
+
+    center , coarse , fine = net(par_pc)
     print(center)
-    print(m)
+
 
 # Compute loss
-loss , loss_pc,loss_fine, loss_coarse, loss_cen,loss_m = get_loss(fine,coarse,gt_pc,center,gt_cen,m,gt_m/par_m)
+loss , loss_pc,loss_fine, loss_coarse, loss_cen = get_loss(fine,coarse,gt_pc,center,gt_cen)
 
-print(loss_m)
+# print(loss_m)
 print(loss_cen)
 print(loss_fine)
 print(loss_coarse)
@@ -222,7 +220,7 @@ pc = pc.cuda()
 pc = pc.unsqueeze(0)
 with torch.no_grad():
     
-    center ,m, coarse , fine = net(pc)
+    center , coarse , fine = net(pc)
 
 
 coarse = coarse.cpu().squeeze(0).numpy()

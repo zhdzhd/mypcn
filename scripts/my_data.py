@@ -10,7 +10,7 @@ import open3d
 from extensions.chamfer_dist import ChamferDistanceL2
 
 class my_pc_dataset(Dataset):
-    def __init__(self,root = '/home/zhang/pcc', npoints = 2048 ,train = True):
+    def __init__(self,root = '/home/zhang/mypcn', npoints = 2048 ,train = True):
         print("Start init dataset!")
         self.npoints = npoints
         self.gt_npoints = npoints * 4
@@ -65,15 +65,15 @@ class my_pc_dataset(Dataset):
                 par_pc_input = par_pc_input/par_m
                 gt_cen = gt_cen/par_m
 
-                m = np.max(np.sqrt(np.sum(gt_pc**2, axis=1)))
-                gt_pc = gt_pc/m
+                # m = np.max(np.sqrt(np.sum(gt_pc**2, axis=1)))
+                gt_pc = gt_pc/par_m
 
 
                 self.pc_input.append(par_pc_input)
                 self.pc_gt.append(gt_pc)
                 self.pc_matrix.append(matrix)
                 self.pc_cen_gt.append(gt_cen)
-                self.pc_m_gt.append(np.array(m))
+                # self.pc_m_gt.append(np.array(m))
                 self.par_m.append(np.array(par_m))
                 
 
@@ -102,9 +102,9 @@ class my_pc_dataset(Dataset):
         gt_pc = torch.from_numpy(self.pc_gt[index].astype(np.float32))
         matrix = torch.from_numpy(self.pc_matrix[index].astype(np.float32))
         gt_cen = torch.from_numpy(self.pc_cen_gt[index].astype(np.float32))
-        m_gt = torch.from_numpy(self.pc_m_gt[index].astype(np.float32))
+        # m_gt = torch.from_numpy(self.pc_m_gt[index].astype(np.float32))
         par_m = torch.from_numpy(self.par_m[index].astype(np.float32))
-        return par_pc,gt_pc,matrix,gt_cen,m_gt,par_m
+        return par_pc,gt_pc,matrix,gt_cen,par_m
 
     def __len__(self):
         return len(self.pc_input)
@@ -112,7 +112,7 @@ class my_pc_dataset(Dataset):
 
 
 class my_pc_dataset_get_one(Dataset):
-    def __init__(self,root = '/home/zhang/pcc', npoints = 2048 ,train = True):
+    def __init__(self,root = '/home/zhang/mypcn', npoints = 2048 ,train = True):
         print("Start init dataset!")
         self.npoints = npoints
         self.gt_npoints = npoints * 4
@@ -162,20 +162,19 @@ class my_pc_dataset_get_one(Dataset):
                 cen = np.mean(par_pc, axis=0)
                 par_pc_input = par_pc-cen
                 gt_cen = -cen
-
                 par_m = np.max(np.sqrt(np.sum(par_pc_input**2, axis=1)))
                 par_pc_input = par_pc_input/par_m
                 gt_cen = gt_cen/par_m
 
-                m = np.max(np.sqrt(np.sum(gt_pc**2, axis=1)))
-                gt_pc = gt_pc/m
+                # m = np.max(np.sqrt(np.sum(gt_pc**2, axis=1)))
+                gt_pc = gt_pc/par_m
 
 
                 self.pc_input.append(par_pc_input)
                 self.pc_gt.append(gt_pc)
                 self.pc_matrix.append(matrix)
                 self.pc_cen_gt.append(gt_cen)
-                self.pc_m_gt.append(np.array(m))
+                # self.pc_m_gt.append(np.array(m))
                 self.par_m.append(np.array(par_m))
 
                 
@@ -209,9 +208,9 @@ class my_pc_dataset_get_one(Dataset):
         gt_pc = torch.from_numpy(self.pc_gt[index].astype(np.float32))
         matrix = torch.from_numpy(self.pc_matrix[index].astype(np.float32))
         gt_cen = torch.from_numpy(self.pc_cen_gt[index].astype(np.float32))
-        m_gt = torch.from_numpy(self.pc_m_gt[index].astype(np.float32))
+        # m_gt = torch.from_numpy(self.pc_m_gt[index].astype(np.float32))
         par_m = torch.from_numpy(self.par_m[index].astype(np.float32))
-        return par_pc,gt_pc,matrix,gt_cen,m_gt,par_m
+        return par_pc,gt_pc,matrix,gt_cen,par_m
 
     def __len__(self):
         return len(self.pc_input)
