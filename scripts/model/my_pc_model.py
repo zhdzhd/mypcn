@@ -21,8 +21,8 @@ class Fold(nn.Module):
         self.in_channel = in_channel
         self.step = step
 
-        a = torch.linspace(-1., 1., steps=step, dtype=torch.float).view(1, step).expand(step, step).reshape(1, -1)
-        b = torch.linspace(-1., 1., steps=step, dtype=torch.float).view(step, 1).expand(step, step).reshape(1, -1)
+        a = torch.linspace(-0.1, 0.1, steps=step, dtype=torch.float).view(1, step).expand(step, step).reshape(1, -1)
+        b = torch.linspace(-0.1, 0.1, steps=step, dtype=torch.float).view(step, 1).expand(step, step).reshape(1, -1)
         self.folding_seed = torch.cat([a, b], dim=0).cuda()
 
         self.folding1 = nn.Sequential(
@@ -59,13 +59,14 @@ class Fold(nn.Module):
         return fd2
 
 
-class Pointnet2(nn.Module):
-    def __init__(self, input_dim=0,radius=[0.04,0.08,0.16]):
+class Pointnet2_center(nn.Module):
+    def __init__(self, input_dim=0,radius=[0.04,0.08,0.16],number_point=[512,128,32]):
         super().__init__()
+
 
         self.sa1=pointnet2_modules.PointnetSAModule(
                 mlp=[input_dim, 32, 32, 64],
-                npoint=512,
+                npoint=number_point[0],
                 radius=radius[0],
                 nsample=64,
                 use_xyz=True,
@@ -73,7 +74,7 @@ class Pointnet2(nn.Module):
 
         self.sa2=pointnet2_modules.PointnetSAModule(
                 mlp=[64, 128, 128, 256],
-                npoint=128,
+                npoint=number_point[1],
                 radius=radius[1],
                 nsample=32,
                 use_xyz=True,
@@ -81,7 +82,7 @@ class Pointnet2(nn.Module):
 
         self.sa3=pointnet2_modules.PointnetSAModule(
                 mlp=[256, 256, 512, 512],
-                npoint=32,
+                npoint=number_point[2],
                 radius=radius[2],
                 nsample=16,
                 use_xyz=True,
@@ -91,6 +92,7 @@ class Pointnet2(nn.Module):
                 mlp=[512, 512, 1024, 1024],
                 use_xyz=True,
                 bn=True,)
+
 
     
     def _break_up_pc(self, pc):
@@ -113,17 +115,88 @@ class Pointnet2(nn.Module):
         xyz, features = self._break_up_pc(pointcloud)
 
 
-        xyz, features= self.sa1(xyz, features)
-        xyz, features= self.sa2(xyz, features)
-        xyz, features= self.sa3(xyz, features)
-        _,features= self.sa4(xyz, features)  #[1,128,3]  [1,1024,1]
+        xyz, features = self.sa1(xyz, features)
+        xyz2, features2 = self.sa2(xyz, features)
+        xyz3, features3 = self.sa3(xyz2, features2)
+        _, features4 = self.sa4(xyz3, features3)
+
+
+
+        return features4.squeeze(-1)
+        
+class Pointnet2_coarse(nn.Module):
+    def __init__(self, input_dim=0,radius=[0.04,0.08,0.16,0.32],number_point=[1024,384,256,128]):
+        super().__init__()
+
+        self.sa1=pointnet2_modules.PointnetSAModule(
+                mlp=[input_dim, 32, 64, 128],
+                npoint=number_point[0],
+                radius=radius[0],
+                nsample=64,
+                use_xyz=True,
+                bn=True,)
+
+        self.sa2=pointnet2_modules.PointnetSAModule(
+                mlp=[128, 256, 512, 1024],
+                npoint=number_point[1],
+                radius=radius[1],
+                nsample=32,
+                use_xyz=True,
+                bn=True,)
+
+        self.sa3=pointnet2_modules.PointnetSAModule(
+                mlp=[1024, 512, 512, 1024],
+                npoint=number_point[2],
+                radius=radius[2],
+                nsample=16,
+                use_xyz=True,
+                bn=True,)
+
+        self.sa4=pointnet2_modules.PointnetSAModule(
+                mlp=[1024, 512, 512, 1024],
+                npoint=number_point[3],
+                radius=radius[3],
+                nsample=8,
+                use_xyz=True,
+                bn=True,)
+
+        self.saglobal=pointnet2_modules.PointnetSAModule(
+                mlp=[1024, 512, 512, 1024],
+                use_xyz=True,
+                bn=True,)
+
+        self.fp1=pointnet2_modules.PointnetFPModule(mlp=[1024+1024,1024])
+        self.fp2=pointnet2_modules.PointnetFPModule(mlp=[1024+1024,1024])
 
     
+    def _break_up_pc(self, pc):
+        xyz = pc[..., 0:3].contiguous()
+        features = (
+            pc[..., 3:].transpose(1, 2).contiguous()
+            if pc.size(-1) > 3 else None
+        )
 
-        return features.squeeze(-1)
-        
+        return xyz, features
 
-        
+
+    def forward(self, pointcloud):
+        batch_size = pointcloud.shape[0]
+
+        xyz, features = self._break_up_pc(pointcloud)
+
+        print(xyz.shape)
+        xyz, features = self.sa1(xyz, features)
+        print(xyz.shape)
+        print(features.shape)
+        xyz2, features2 = self.sa2(xyz, features)
+        xyz3, features3 = self.sa3(xyz2, features2)
+        xyz4, features4 = self.sa4(xyz3, features3)
+        _,global_features = self.saglobal(xyz4, features4)  #[1,1024,1]
+
+        features = self.fp1(xyz3,xyz4,features3,features4)
+        coarse_features = self.fp1(xyz2,xyz3,features2,features)  #B 1024 384
+
+        return global_features,coarse_features
 
 
 class Model(nn.Module):
@@ -138,10 +211,10 @@ class Model(nn.Module):
         
 
         
-        self.backbone_modules1 = Pointnet2()
-        self.backbone_modules2 = Pointnet2(radius=[0.008,0.016,0.032])
+        self.backbone_modules1 = Pointnet2_center(radius=[0.04,0.08,0.16],number_point=[512,128,32])
+        self.backbone_modules2 = Pointnet2_coarse(radius=[0.004,0.08,0.016,0.032],number_point=[self.number_coarse*2,self.number_coarse,self.number_coarse//2,self.number_coarse//4])
         
-        self.center_and_m_map= nn.Sequential(
+        self.center_map= nn.Sequential(
             nn.Linear(1024, 512),
             nn.BatchNorm1d(512),
             nn.ReLU(inplace=True),
@@ -153,14 +226,16 @@ class Model(nn.Module):
 
 
         self.mlp = nn.Sequential(
-            nn.Linear(1024,1024),
+            nn.Conv1d(2048, 1024, 1),
+            nn.BatchNorm1d(1024),
             nn.ReLU(inplace=True),
-            nn.Linear(1024,1024),
+            nn.Conv1d(1024, 256, 1),
+            nn.BatchNorm1d(256),
             nn.ReLU(inplace=True),
-            nn.Linear(1024,3*self.number_coarse)
+            nn.Conv1d(256, 3, 1)
         )
 
-        self.reduce_map = nn.Linear(1024 + 3, 1024)
+        self.reduce_map = nn.Linear(1024 + 3 + 1024, 1024)
 
         self.foldingnet = Fold(1024, step = self.grid_size, hidden_dim = 512)  # rebuild a cluster point
 
@@ -180,7 +255,7 @@ class Model(nn.Module):
 
         if train:
             center_features = self.backbone_modules1(pc_input)  #B 1024
-            center = self.center_and_m_map(center_features)   # B 4
+            center = self.center_map(center_features)   # B 4
 
             pc_input = pc_input - cen_gt.unsqueeze(-2)
             pc_input = pc_input*par_m.unsqueeze(-1).unsqueeze(-2)
@@ -188,37 +263,30 @@ class Model(nn.Module):
         else:
             if cen_gt is None:
                 center_features = self.backbone_modules1(pc_input)  #B 1024
-                center = self.center_and_m_map(center_features)   # B 4
-
-                
+                center = self.center_map(center_features)   # B 3
 
             else:
                 center = cen_gt
 
-
-
             pc_input = pc_input - center.unsqueeze(-2)
-            pc_input = pc_input*par_m.unsqueeze(-1).unsqueeze(-2)
-
-
-
-
-        
-
+            pc_input = pc_input*par_m.unsqueeze(-2)
+   
 
 
 
                 
 
-        global_features = self.backbone_modules2(pc_input)
+        global_features,coarse_features = self.backbone_modules2(pc_input)  #B 1024 1  B 1024 M
 
+        features = torch.cat([coarse_features,global_features.expand(-1,-1,self.number_coarse)],dim=1) #B 2048 M
 
-        coarse = self.mlp(global_features).reshape(-1,self.number_coarse,3) # B M 3
-        
+        coarse = self.mlp(features).transpose(1,2).contiguous() # B M 3
+
         rebuild_feature = torch.cat([
-            global_features.unsqueeze(-2).expand(-1, self.number_coarse, -1),
-            coarse], dim=-1)  # B M 1024 + 3
-
+            global_features.transpose(1,2).contiguous().expand(-1, self.number_coarse, -1),
+            coarse_features.transpose(1,2).contiguous(),
+            coarse], dim=-1)  # B M 1024 + 3 + 1024
+        
 
         rebuild_feature = self.reduce_map(rebuild_feature.reshape(bs*self.number_coarse, -1)) # BM 1024
 
@@ -241,26 +309,29 @@ class Model(nn.Module):
 
 
 if __name__ == "__main__":
-    p1_path = '/home/zhang/pcc/data/dataset/0/part_pc/par_0.pcd'
+    p1_path = '/home/zhang/mypcn/data/dataset/0/part_pc/par_0.pcd'
 
     p1 = read_pcd(p1_path)
     
     choice = np.random.choice(len(p1[:,0]), 2048, replace=True)
     input_pc = p1[choice, :]
-
+    m = np.max(np.sqrt(np.sum(input_pc**2, axis=1)))
 
     args = 0
     test = Model(args)
     a = torch.from_numpy(input_pc.astype(np.float32))
     a = a.unsqueeze(dim=0)
     a = torch.cat((a,a), dim=0)
-
+    m = torch.from_numpy(np.array([m]).astype(np.float32))
+    m = m.unsqueeze(dim=0)
+    m = torch.cat((m,m), dim=0)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     test.to(device)
     a = a.to(device)
+    m = m.to(device)
 
-    center , pc_out, coarse , fine = test(a)
+    center , coarse , fine = test(a,m)
     print(center.shape)
-    print(pc_out.shape)
+    print(coarse.shape)
     print(fine.shape)
