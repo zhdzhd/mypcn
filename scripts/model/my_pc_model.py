@@ -2,9 +2,7 @@ from pyexpat import features
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.parallel
 import torch.utils.data
-import torch.nn.functional as F
 from pointnet2_ops import pointnet2_utils
 from pointnet2_ops import pointnet2_modules
 import open3d
@@ -184,10 +182,7 @@ class Pointnet2_coarse(nn.Module):
 
         xyz, features = self._break_up_pc(pointcloud)
 
-        print(xyz.shape)
         xyz, features = self.sa1(xyz, features)
-        print(xyz.shape)
-        print(features.shape)
         xyz2, features2 = self.sa2(xyz, features)
         xyz3, features3 = self.sa3(xyz2, features2)
         xyz4, features4 = self.sa4(xyz3, features3)

@@ -6,6 +6,7 @@ import sys
 import random
 from datetime import datetime
 
+
 from sqlalchemy import false
 from extensions.chamfer_dist import ChamferDistanceL2
 
@@ -27,7 +28,7 @@ parser.add_argument('--log_dir', default='log', help='Dump dir to save model che
 parser.add_argument('--dump_dir', default=None, help='Dump dir to save sample outputs [default: None]')
 parser.add_argument('--num_point', type=int, default=2048, help='Point Number [default: 20000]')
 parser.add_argument('--max_epoch', type=int, default=150, help='Epoch to run [default: 180]')
-parser.add_argument('--batch_size', type=int, default=6, help='Batch Size during training [default: 8]')
+parser.add_argument('--batch_size', type=int, default=4, help='Batch Size during training [default: 8]')
 parser.add_argument('--learning_rate', type=float, default=0.00005, help='Initial learning rate [default: 0.001]')
 parser.add_argument('--weight_decay', type=float, default=0, help='Optimization L2 weight decay [default: 0]')
 parser.add_argument('--bn_decay_step', type=int, default=4, help='Period of BN decay (in epochs) [default: 20]')
@@ -63,6 +64,9 @@ checkpoint_path = args.checkpoint_path if args.checkpoint_path is not None \
 args.dump_dir = dump_dir
 
 # Prepare LOG_DIR and DUMP_DIR
+print(os.path.exists(log_dir))
+print(args.overwrite)
+exit()
 if os.path.exists(log_dir) and args.overwrite:
     print('Log folder %s already exists. Are you sure to overwrite? (Y/N)'%(log_dir))
     c = input()
